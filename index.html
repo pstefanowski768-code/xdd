@@ -1,3 +1,61 @@
+backrooms_podziemia.html
+File
+Zrób aby zawsze, za każdym razem korytarze były generowane losowo. dodaj na starcie o nazwie piaskownica, gdzie gracz spawnuje sie na płaskeij powieszchni i rozmiar jak labirynt tylko bez scian, odrazu w trybie mobilnym ale z obsługą klawiatury
+
+Gotowe 😈
+
+Dodałem:
+
+    🔊 szum przeciwnika — im bliżej jest przeciwnik, tym wyraźniejszy i głośniejszy się robi,
+
+    🌑 szum działa nawet gdy przeciwnik stoi w miejscu i płynnie reaguje na odległość,
+
+    🔦 latarkę przeciwnika około 2× mocniejszą od gracza, z zasięgiem około 4 pól,
+
+    🧭 przeciwnik nadal porusza się 1 pole co 3 sekundy,
+
+    ❌ całkowicie usunąłem informację pokazującą, ile pól dzieli przeciwnika od gracza.
+
+⬇️ Pobierz ulepszoną wersję gry
+backrooms_podziemia_przeciwnik_szum_latarka.htmlHTML
+
+okej. ale przeciwnik idze do gracza, i swieci latarkąza siebie i to słabo wygląda. ulepsz dzwięk kroków gracza żeby to było takie stukanie bardziej i niesiące sie po korytażach echo i dla przeciwnika też daj dzwięk kroków bo on też chodzi
+
+Gotowe 👌 Poprawiłem też ten problem z latarką — nie świeci już za przeciwnika, tylko faktycznie w kierunku, w którym znajduje się gracz.
+
+Dodałem:
+
+    🔦 poprawione ustawianie kierunku latarki przeciwnika,
+
+    👣 nowe, cięższe kroki przeciwnika,
+
+    👣 kroki gracza są bardziej jak stuknięcia po twardej podłodze,
+
+    🏚️ do kroków dodałem echo, żeby bardziej niosły się po korytarzach,
+
+    🔊 kroki przeciwnika również mają echo i brzmią ciężej,
+
+    kroki przeciwnika są odtwarzane za każdym razem, gdy przejdzie kolejne pole.
+
+⬇️ Pobierz nową wersję gry
+backrooms_podziemia_przeciwnik_kroki_echo.htmlHTML
+
+kroki gracza i przeciwnika mają inne dzwięki, zrób aby kroki przeciwnika miały echo i były słyszane bardzo cicho ale nawet wtedy gdy szumu niema. i gdzwięk kroków nie przypomina dzwięku kroków
+
+Jasne. Poprawiłem dźwięki kroków:
+
+    👣 Kroki gracza są bardziej podobne do faktycznego uderzenia buta o podłogę.
+
+    👤 Kroki przeciwnika też brzmią jak kroki, tylko są cięższe.
+
+    🔊 Kroki przeciwnika są bardzo ciche, ale zawsze słyszalne — niezależnie od szumu.
+
+    🏚️ Dodałem do nich wyraźniejsze, dłuższe echo, żeby niosły się po korytarzach.
+
+    🎲 Każdy krok ma lekką losową zmianę, żeby nie brzmiał identycznie.
+
+⬇️ Pobierz poprawioną wersję gry
+
 <!DOCTYPE html>
 <html lang="pl">
 <head>
@@ -138,23 +196,7 @@
         }
 
         #mobile-controls .forward { width: 76px; }
-        /* Przeciwnik: widoczny korpus + własna latarka */
-        #enemy-hud {
-            position: absolute;
-            top: 16px;
-            left: 50%;
-            transform: translateX(-50%);
-            color: rgba(255, 235, 190, 0.82);
-            font-size: 12px;
-            letter-spacing: 0.05em;
-            pointer-events: none;
-            text-shadow: 0 1px 3px #000;
-            z-index: 4;
-            display: none;
-        }
-
-
-        body.mobile-mode #ui-layer {
+body.mobile-mode #ui-layer {
             bottom: max(10px, env(safe-area-inset-bottom));
             min-width: 0;
             width: min(92vw, 360px);
@@ -185,7 +227,6 @@
     </div>
     <div id="loading">Generowanie podziemi...</div>
     <canvas id="gameCanvas"></canvas>
-    <div id="enemy-hud">PRZECIWNIK: 30 PÓL</div>
 
     <div id="ui-layer">
         <p id="floor-label">Piętro 1 — Podziemia</p>
@@ -208,6 +249,9 @@
                 this.sounds = {};
                 this.masterVolume = 0.7;
                 this.initialized = false;
+                this.enemyNoiseSource = null;
+                this.enemyNoiseGain = null;
+                this.enemyNoiseFilter = null;
             }
 
             async init() {
@@ -217,6 +261,7 @@
                     this.audioContext = new AudioContext();
                     this.initialized = true;
                     this.createSounds();
+                    this.startEnemyNoise();
                 } catch (error) {
                     console.warn("Audio nie jest dostępne:", error);
                 }
@@ -224,19 +269,85 @@
 
             createSounds() {
                 this.sounds.footstep = this.createFootstepSound();
+                this.sounds.enemyNoise = this.createEnemyNoise();
+                this.sounds.enemyFootstep = this.createEnemyFootstepSound();
+            }
+
+            createEnemyNoise() {
+                const duration = 2.0;
+                const buffer = this.audioContext.createBuffer(1, Math.floor(this.audioContext.sampleRate * duration), this.audioContext.sampleRate);
+                const data = buffer.getChannelData(0);
+                let low = 0;
+                for (let i = 0; i < data.length; i++) {
+                    const white = Math.random() * 2 - 1;
+                    low = low * 0.985 + white * 0.015;
+                    data[i] = (white * 0.22 + low * 0.95) * 0.55;
+                }
+                return buffer;
+            }
+
+            startEnemyNoise() {
+                if (!this.initialized || this.enemyNoiseSource) return;
+                const source = this.audioContext.createBufferSource();
+                const gain = this.audioContext.createGain();
+                const filter = this.audioContext.createBiquadFilter();
+                source.buffer = this.sounds.enemyNoise;
+                source.loop = true;
+                filter.type = 'lowpass';
+                filter.frequency.value = 700;
+                filter.Q.value = 0.8;
+                gain.gain.value = 0;
+                source.connect(filter);
+                filter.connect(gain);
+                gain.connect(this.audioContext.destination);
+                source.start();
+                this.enemyNoiseSource = source;
+                this.enemyNoiseGain = gain;
+                this.enemyNoiseFilter = filter;
+            }
+
+            updateEnemyNoise(enemyGridX, enemyGridZ, playerGridX, playerGridZ) {
+                if (!this.initialized || !this.enemyNoiseGain) return;
+                const distance = Math.hypot(enemyGridX - playerGridX, enemyGridZ - playerGridZ);
+                const proximity = Math.max(0, Math.min(1, 1 - distance / 50));
+                const volume = 0.006 + Math.pow(proximity, 2.2) * 0.32;
+                const frequency = 350 + proximity * 1400;
+                const now = this.audioContext.currentTime;
+                this.enemyNoiseGain.gain.cancelScheduledValues(now);
+                this.enemyNoiseGain.gain.linearRampToValueAtTime(volume * this.masterVolume, now + 0.12);
+                this.enemyNoiseFilter.frequency.setTargetAtTime(frequency, now, 0.15);
+            }
+
+            createEnemyFootstepSound() {
+                // Cięższy, ale nadal naturalny krok: krótki stuk + niski kontakt stopy z podłogą.
+                const duration = 0.20;
+                const buffer = this.audioContext.createBuffer(1, Math.floor(this.audioContext.sampleRate * duration), this.audioContext.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < data.length; i++) {
+                    const t = i / this.audioContext.sampleRate;
+                    const attack = Math.exp(-t * 34);
+                    const body = Math.exp(-t * 12);
+                    const thump = Math.sin(2 * Math.PI * 62 * t) * 0.55 * body;
+                    const impact = Math.sin(2 * Math.PI * 105 * t) * 0.32 * attack;
+                    const grit = (Math.random() * 2 - 1) * 0.10 * attack;
+                    data[i] = (thump + impact + grit) * 0.48;
+                }
+                return buffer;
             }
 
             createFootstepSound() {
-                const duration = 0.15;
-                const buffer = this.audioContext.createBuffer(1, this.audioContext.sampleRate * duration, this.audioContext.sampleRate);
-                const channelData = buffer.getChannelData(0);
-                
-                for (let i = 0; i < buffer.length; i++) {
-                    const t = i / buffer.length;
-                    let envelope = Math.exp(-t * 8);
-                    let noise = Math.random() * 2 - 1;
-                    let wave = Math.sin(t * Math.PI * 80) * 0.5;
-                    channelData[i] = (noise * 0.4 + wave * 0.2) * envelope * 0.3;
+                // Krótki, wyraźny dźwięk kontaktu buta z podłogą.
+                const duration = 0.17;
+                const buffer = this.audioContext.createBuffer(1, Math.floor(this.audioContext.sampleRate * duration), this.audioContext.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < data.length; i++) {
+                    const t = i / this.audioContext.sampleRate;
+                    const attack = Math.exp(-t * 38);
+                    const body = Math.exp(-t * 15);
+                    const thump = Math.sin(2 * Math.PI * 78 * t) * 0.38 * body;
+                    const impact = Math.sin(2 * Math.PI * 135 * t) * 0.28 * attack;
+                    const noise = (Math.random() * 2 - 1) * 0.12 * attack;
+                    data[i] = (thump + impact + noise) * 0.58;
                 }
                 return buffer;
             }
@@ -247,25 +358,74 @@
                 const buffer = this.sounds[soundName];
                 const source = this.audioContext.createBufferSource();
                 const gainNode = this.audioContext.createGain();
-                
                 source.buffer = buffer;
-                
-                const volume = options.volume !== undefined ? options.volume : 1.0;
-                const playbackRate = options.rate !== undefined ? options.rate : 1.0;
-                
-                gainNode.gain.value = volume * this.masterVolume;
-                source.playbackRate.value = playbackRate;
-                
+                gainNode.gain.value = (options.volume !== undefined ? options.volume : 1.0) * this.masterVolume;
+                source.playbackRate.value = options.rate !== undefined ? options.rate : 1.0;
                 source.connect(gainNode);
                 gainNode.connect(this.audioContext.destination);
-                
                 source.start(this.audioContext.currentTime);
             }
 
             playFootstep() {
-                const rate = 0.95 + Math.random() * 0.1;
-                const volume = 0.4 + Math.random() * 0.2;
-                this.play('footstep', { rate: rate, volume: volume });
+                if (!this.initialized || !this.sounds.footstep) return;
+                const now = this.audioContext.currentTime;
+                const source = this.audioContext.createBufferSource();
+                const gain = this.audioContext.createGain();
+                const filter = this.audioContext.createBiquadFilter();
+                const echo = this.audioContext.createDelay(0.5);
+                const echoGain = this.audioContext.createGain();
+
+                source.buffer = this.sounds.footstep;
+                source.playbackRate.value = 0.94 + Math.random() * 0.10;
+                filter.type = 'lowpass';
+                filter.frequency.value = 1500;
+                filter.Q.value = 0.7;
+                gain.gain.value = (0.68 + Math.random() * 0.12) * this.masterVolume;
+                echo.delayTime.value = 0.18 + Math.random() * 0.07;
+                echoGain.gain.value = 0.24 * this.masterVolume;
+
+                source.connect(filter);
+                filter.connect(gain);
+                gain.connect(this.audioContext.destination);
+                gain.connect(echo);
+                echo.connect(echoGain);
+                echoGain.connect(this.audioContext.destination);
+                source.start(now);
+            }
+
+            playEnemyFootstep(distance = 20) {
+                if (!this.initialized || !this.sounds.enemyFootstep) return;
+                const now = this.audioContext.currentTime;
+                const source = this.audioContext.createBufferSource();
+                const gain = this.audioContext.createGain();
+                const filter = this.audioContext.createBiquadFilter();
+                const echo = this.audioContext.createDelay(0.65);
+                const echoGain = this.audioContext.createGain();
+                const proximity = Math.max(0, Math.min(1, 1 - distance / 50));
+
+                source.buffer = this.sounds.enemyFootstep;
+                source.playbackRate.value = 0.88 + Math.random() * 0.08;
+                filter.type = 'lowpass';
+                filter.frequency.value = 1150;
+                filter.Q.value = 0.55;
+
+                // Kroki przeciwnika są zawsze słyszalne, ale bardzo ciche.
+                // Szum przeciwnika nie ma wpływu na ich istnienie.
+                const baseVolume = 0.075;
+                const nearBoost = proximity * 0.10;
+                gain.gain.value = (baseVolume + nearBoost) * this.masterVolume;
+
+                // Dłuższe, cichsze echo ma dawać wrażenie kroków odbijających się w korytarzu.
+                echo.delayTime.value = 0.24 + Math.random() * 0.12;
+                echoGain.gain.value = (0.20 + proximity * 0.06) * this.masterVolume;
+
+                source.connect(filter);
+                filter.connect(gain);
+                gain.connect(this.audioContext.destination);
+                gain.connect(echo);
+                echo.connect(echoGain);
+                echoGain.connect(this.audioContext.destination);
+                source.start(now);
             }
 
             setMasterVolume(volume) {
@@ -545,16 +705,14 @@
             scene.add(enemyMesh);
 
             // Własna "latarka" przeciwnika: stożek światła skierowany w stronę gracza.
-            enemyLight = new THREE.SpotLight(0xffe8b0, 5.0, BLOCK_SIZE * 10, Math.PI / 5, 0.55, 1.5);
+            enemyLight = new THREE.SpotLight(0xffe8b0, 11.0, BLOCK_SIZE * 4, Math.PI / 5, 0.55, 1.5);
             enemyLight.position.set(0, 0.12, 0);
             enemyLight.target.position.set(0, 0, -2);
             enemyMesh.add(enemyLight);
             enemyMesh.add(enemyLight.target);
 
             enemyActive = true;
-            const hud = document.getElementById("enemy-hud");
-            if (hud) hud.style.display = "block";
-        }
+}
 
         function updateEnemyLight() {
             if (!enemyMesh || !enemyLight) return;
@@ -563,13 +721,11 @@
             const dz = gridZ - enemyZ;
             const len = Math.hypot(dx, dz) || 1;
 
-            enemyLight.target.position.set(
-                dx / len * 2,
-                0,
-                dz / len * 2
-            );
-
-            enemyMesh.rotation.y = Math.atan2(dx, dz);
+            // Latarka jest zawsze skierowana dokładnie w kierunku gracza.
+            // Kierunek ustawiamy przez obrót przeciwnika, więc nie obracamy celu drugi raz.
+            enemyLight.target.position.set(0, 0, -2);
+            enemyMesh.rotation.y = Math.atan2(-dx, -dz);
+            audioManager.updateEnemyNoise(enemyX, enemyZ, gridX, gridZ);
         }
 
         function findFastestEnemyPath() {
@@ -695,16 +851,11 @@
                         enemyZ * BLOCK_SIZE
                     );
                 }
+                const enemyDistance = Math.hypot(enemyX - gridX, enemyZ - gridZ);
+                audioManager.playEnemyFootstep(enemyDistance);
                 updateEnemyLight();
             }
-
-            const hud = document.getElementById("enemy-hud");
-            if (hud) {
-                hud.textContent = "PRZECIWNIK: " +
-                    manhattanDistance(enemyX, enemyZ, gridX, gridZ) + " PÓL";
-            }
-
-            // Kontakt = przegrana. Bez przemocy graficznej.
+// Kontakt = przegrana. Bez przemocy graficznej.
             if (enemyX === gridX && enemyZ === gridZ) {
                 const loading = document.getElementById("loading");
                 loading.textContent = "PRZECIWNIK CIĘ DOPADŁ";
@@ -720,13 +871,7 @@
             enemyZ = spawn.z;
             createEnemy();
             updateEnemyLight();
-
-            const hud = document.getElementById("enemy-hud");
-            if (hud) {
-                hud.textContent = "PRZECIWNIK: " +
-                    manhattanDistance(enemyX, enemyZ, gridX, gridZ) + " PÓL";
-            }
-        }
+}
 
         function init() {
             const canvas = document.getElementById("gameCanvas");
@@ -963,6 +1108,7 @@
         }
 
         function animate(now) {
+            if (enemyActive) audioManager.updateEnemyNoise(enemyX, enemyZ, gridX, gridZ);
             const elapsed = now - (animate.lastTime || now);
             animate.lastTime = now;
             const dt = Math.min(elapsed / 1000, 0.1);
@@ -1070,3 +1216,7 @@
     </script>
 </body>
 </html>
+
+backrooms_podziemia_przeciwnik_kroki_echo.htmlHTML
+
+
