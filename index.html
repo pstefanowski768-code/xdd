@@ -305,9 +305,10 @@
         let enemyX = 0, enemyZ = 0;
         let enemyActive = false;
         let enemyMesh = null, enemyLight = null;
-        const ENEMY_SPAWN_DISTANCE = 30;
+        const ENEMY_SPAWN_DISTANCE = 50;
         const ENEMY_MAX_SEARCH = 10000;
-        const ENEMY_MOVE_DELAY = 0.0; // ruch wykonywany po każdym ruchu gracza
+        const ENEMY_MOVE_DELAY = 3000; // przeciwnik porusza się co 3 sekundy
+        let enemyMoveTimer = null;
 
 
         function mod(n, m) { return ((n % m) + m) % m; }
@@ -460,16 +461,16 @@
         }
 
         function findEnemySpawn() {
-            // Losowy punkt w odległości 30 pól (Manhattan), ale wybieramy taki,
-            // z którego istnieje przejście do gracza.
+            // Przeciwnik spawnuje się losowo w obrębie 50 pól od gracza.
+            // Wybieramy tylko pole dostępne dla przeciwnika, żeby zawsze mógł
+            // rozpocząć pościg po istniejącej trasie.
             const candidates = [];
+
             for (let dx = -ENEMY_SPAWN_DISTANCE; dx <= ENEMY_SPAWN_DISTANCE; dx++) {
-                const dzAbs = ENEMY_SPAWN_DISTANCE - Math.abs(dx);
-                if (dzAbs === 0) {
-                    candidates.push({ x: gridX + dx, z: gridZ });
-                } else {
-                    candidates.push({ x: gridX + dx, z: gridZ + dzAbs });
-                    candidates.push({ x: gridX + dx, z: gridZ - dzAbs });
+                const maxDz = ENEMY_SPAWN_DISTANCE - Math.abs(dx);
+                for (let dz = -maxDz; dz <= maxDz; dz++) {
+                    if (dx === 0 && dz === 0) continue;
+                    candidates.push({ x: gridX + dx, z: gridZ + dz });
                 }
             }
 
@@ -478,28 +479,28 @@
                 [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
             }
 
-            // Najpierw próbujemy znaleźć losowy punkt, który jest faktycznie
-            // połączony z graczem.
             for (const c of candidates) {
-                if (isWalkable(c.x, c.z) && hasPathBetween(c.x, c.z, gridX, gridZ)) {
+                if (isWalkable(c.x, c.z) &&
+                    hasPathBetween(c.x, c.z, gridX, gridZ)) {
                     return c;
                 }
             }
 
-            // Jeżeli generator zrobił całkowicie odciętą sekcję, wybierzmy
-            // dowolne wolne pole z dostępnej części mapy.
-            for (let radius = 1; radius <= 45; radius++) {
+            // Awaryjnie: najbliższe dostępne pole z trasą do gracza.
+            for (let radius = 1; radius <= ENEMY_SPAWN_DISTANCE; radius++) {
                 for (let dx = -radius; dx <= radius; dx++) {
                     const dzAbs = radius - Math.abs(dx);
                     const zs = dzAbs === 0 ? [0] : [dzAbs, -dzAbs];
                     for (const dz of zs) {
                         const x = gridX + dx, z = gridZ + dz;
-                        if (isWalkable(x, z) && hasPathBetween(x, z, gridX, gridZ)) {
+                        if (isWalkable(x, z) &&
+                            hasPathBetween(x, z, gridX, gridZ)) {
                             return { x, z };
                         }
                     }
                 }
             }
+
             return { x: gridX, z: gridZ };
         }
 
@@ -807,6 +808,13 @@
             updateWorld();
             spawnEnemy();
 
+            // Przeciwnik porusza się niezależnie od gracza:
+            // dokładnie 1 pole co 3 sekundy.
+            if (enemyMoveTimer) clearInterval(enemyMoveTimer);
+            enemyMoveTimer = setInterval(function() {
+                if (enemyActive) moveEnemyOneStep();
+            }, ENEMY_MOVE_DELAY);
+
             setTimeout(function() {
                 const loading = document.getElementById("loading");
                 loading.style.opacity = "0";
@@ -930,8 +938,6 @@
                 gridZ = nextZ;
                 audioManager.playFootstep();
 
-                // Przeciwnik natychmiast przelicza trasę i wykonuje jeden ruch.
-                moveEnemyOneStep();
             }
         }
 
