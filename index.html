@@ -3,40 +3,811 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Backrooms: Zniszczone korytarze</title>
-    <style>body,html{margin:0;padding:0;width:100%;height:100%;background:#000;overflow:hidden;font-family:"Courier New",Courier,monospace;}#gameCanvas{display:block;width:100%;height:100%;}#ui-layer{position:absolute;bottom:26px;left:50%;transform:translateX(-50%);min-width:270px;color:rgba(255,255,255,0.78);text-align:center;pointer-events:none;user-select:none;background:rgba(0,0,0,0.58);padding:9px 18px 11px;border-radius:8px;border:1px solid rgba(190,186,132,0.28);box-shadow:0 4px 16px rgba(0,0,0,0.7);text-shadow:0 1px 2px #000;}#ui-layer p{margin:5px 0;font-size:13px;}#floor-label{color:#ded99e;letter-spacing:0.04em;}.key{display:inline-block;border:1px solid rgba(255,255,255,0.7);border-radius:4px;padding:1px 7px;margin:0 3px;font-weight:bold;background:rgba(255,255,255,0.1);}#loading{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:#000;color:#fff;font-size:24px;z-index:10;transition:opacity 0.5s ease;}#mode-picker{position:absolute;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.94);color:#eee9c8;}.mode-panel{width:min(420px,calc(100% - 36px));padding:26px 22px;text-align:center;border:1px solid rgba(222,217,158,0.36);background:rgba(25,24,19,0.94);box-shadow:0 12px 40px rgba(0,0,0,0.8);}.mode-panel h1{margin:0 0 22px;font-size:20px;font-weight:normal;letter-spacing:0.08em;}.mode-button{width:100%;margin:7px 0;padding:13px 12px;border:1px solid rgba(222,217,158,0.4);background:#29281f;color:#eee9c8;font:inherit;cursor:pointer;}.mode-button:active{background:#4b4935;}#mobile-controls{display:none;gap:8px;justify-content:center;align-items:center;pointer-events:auto;flex-wrap:wrap;max-width:260px;margin:8px auto 0;}.mobile-button{width:54px;height:50px;padding:0;border:1px solid rgba(255,255,255,0.55);border-radius:4px;background:rgba(255,255,255,0.12);color:#fff;font:bold 20px "Courier New",monospace;touch-action:manipulation;-webkit-tap-highlight-color:transparent;user-select:none;}#mobile-controls .forward{width:76px;}body.mobile-mode #ui-layer{bottom:max(10px,env(safe-area-inset-bottom));min-width:0;width:min(92vw,360px);padding:8px 10px 10px;}body.mobile-mode #ui-layer p{font-size:12px;}body.mobile-mode #desktop-controls{display:none;}body.mobile-mode #mobile-controls{display:flex;}#game-over{position:absolute;inset:0;z-index:1000;display:none;pointer-events:auto;align-items:center;justify-content:center;background:rgba(0,0,0,0.90);color:#eee9c8;text-align:center;}.game-over-panel{width:min(420px,calc(100% - 36px));padding:28px 22px;border:1px solid rgba(222,217,158,0.36);background:rgba(25,24,19,0.96);box-shadow:0 12px 40px rgba(0,0,0,0.9);}.game-over-panel h1{margin:0 0 22px;font-size:25px;font-weight:normal;letter-spacing:0.08em;}.game-over-stats{margin:0 0 24px;line-height:1.9;font-size:15px;}.game-over-button{width:100%;padding:11px 14px;border:1px solid rgba(255,255,255,0.45);border-radius:4px;background:#29281f;color:#eee9c8;font:inherit;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent;}.game-over-button:active{background:#4b4935;}@media (max-width:420px){.mode-panel{padding:20px 16px;}.mode-panel h1{font-size:17px;}body.mobile-mode #ui-layer{width:calc(100vw - 20px);}.mobile-button{width:58px;height:52px;}#mobile-controls .forward{width:82px;}}</style>
+    <title>Backrooms: Zniszczone Korytarze v1.1</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
+
+        * { box-sizing: border-box; }
+        body, html {
+            margin: 0; padding: 0; width: 100%; height: 100%;
+            background: #000; overflow: hidden;
+            font-family: 'Share Tech Mono', 'Courier New', monospace;
+            color: #e0be36; user-select: none;
+        }
+
+        #gameCanvas { display: block; width: 100%; height: 100%; }
+
+        /* Nakładka VHS / CRT */
+        .vhs-overlay {
+            position: absolute; inset: 0; pointer-events: none; z-index: 5;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%),
+                        linear-gradient(90deg, rgba(255,0,0,0.03), rgba(0,255,0,0.01), rgba(0,0,255,0.03));
+            background-size: 100% 4px, 6px 100%;
+            box-shadow: inset 0 0 100px rgba(0,0,0,0.8);
+        }
+
+        #danger-vignette {
+            position: absolute; inset: 0; pointer-events: none; z-index: 6;
+            background: radial-gradient(circle, transparent 40%, rgba(180, 0, 0, 0.6) 100%);
+            opacity: 0; transition: opacity 0.2s ease;
+        }
+
+        /* VHS HUD Top Bar */
+        #vhs-hud {
+            position: absolute; top: 16px; left: 20px; right: 20px;
+            display: flex; justify-content: space-between; align-items: flex-start;
+            z-index: 10; pointer-events: none;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.9), 0 0 8px rgba(224, 190, 54, 0.4);
+            font-size: 15px; letter-spacing: 1px;
+        }
+
+        .hud-group { display: flex; flex-direction: column; gap: 6px; }
+        .rec-dot { display: inline-block; width: 10px; height: 10px; background: #ff2222; border-radius: 50%; margin-right: 6px; animation: blink 1s infinite; }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; } }
+
+        .stat-bar {
+            width: 140px; height: 10px; background: rgba(0,0,0,0.6);
+            border: 1px solid #e0be36; padding: 1px; display: inline-block; vertical-align: middle;
+        }
+        .stat-fill { height: 100%; background: #e0be36; transition: width 0.3s ease; }
+
+        /* UI Controls Bottom Layer */
+        #ui-layer {
+            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+            min-width: 320px; color: #d0c8a0; text-align: center; pointer-events: none;
+            background: rgba(10, 10, 8, 0.85); padding: 12px 20px; border-radius: 4px;
+            border: 1px solid rgba(224, 190, 54, 0.3); box-shadow: 0 4px 20px rgba(0,0,0,0.8);
+            z-index: 10;
+        }
+        #ui-layer p { margin: 4px 0; font-size: 13px; }
+        .key {
+            display: inline-block; border: 1px solid #e0be36; border-radius: 3px;
+            padding: 1px 6px; margin: 0 2px; font-weight: bold; background: rgba(224, 190, 54, 0.15); color: #fff;
+        }
+
+        /* Ekrany i Panele Menu */
+        .modal-screen {
+            position: absolute; inset: 0; display: flex;
+            align-items: center; justify-content: center;
+            background: rgba(5, 5, 4, 0.95); color: #e0be36; backdrop-filter: blur(4px);
+        }
+
+        #loading { z-index: 1000; }
+        #mode-picker { z-index: 500; display: none; }
+        #pause-menu { z-index: 600; display: none; }
+        #game-over { z-index: 700; display: none; }
+
+        .panel {
+            width: min(460px, calc(100% - 32px)); padding: 32px 28px; text-align: center;
+            border: 1px solid rgba(224, 190, 54, 0.5); background: rgba(15, 14, 10, 0.95);
+            box-shadow: 0 0 30px rgba(0,0,0,0.9), inset 0 0 15px rgba(224, 190, 54, 0.05);
+        }
+        .panel h1 { margin: 0 0 16px; font-size: 22px; letter-spacing: 2px; color: #fff; text-shadow: 0 0 10px rgba(255,255,255,0.3); }
+        .panel p { font-size: 14px; line-height: 1.6; color: #a09a7a; margin-bottom: 24px; }
+
+        .btn {
+            width: 100%; margin: 8px 0; padding: 14px 16px;
+            border: 1px solid #e0be36; background: #1c1a12; color: #e0be36;
+            font-family: inherit; font-size: 14px; font-weight: bold; letter-spacing: 1px;
+            cursor: pointer; transition: all 0.2s ease; touch-action: manipulation;
+        }
+        .btn:hover, .btn:active { background: #e0be36; color: #000; box-shadow: 0 0 12px rgba(224, 190, 54, 0.6); }
+
+        /* Mobile Controls */
+        #mobile-controls { display: none; gap: 10px; justify-content: center; align-items: center; pointer-events: auto; margin-top: 10px; }
+        .mobile-button {
+            width: 60px; height: 54px; border: 1px solid #e0be36; border-radius: 4px;
+            background: rgba(224, 190, 54, 0.1); color: #e0be36; font: bold 22px 'Share Tech Mono', monospace;
+            touch-action: manipulation; user-select: none;
+        }
+        .mobile-button:active { background: #e0be36; color: #000; }
+        .mobile-button.forward { width: 90px; }
+
+        body.mobile-mode #desktop-controls { display: none; }
+        body.mobile-mode #mobile-controls { display: flex; }
+    </style>
+    <!-- Zapasowe CDN dla biblioteki Three.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        if (typeof THREE === 'undefined') {
+            document.write('<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"><\/script>');
+        }
+    </script>
+    <script>
+        if (typeof THREE === 'undefined') {
+            document.write('<script src="https://unpkg.com/three@0.128.0/build/three.min.js"><\/script>');
+        }
+    </script>
 </head>
 <body>
-    <div id="mode-picker">
-        <div class="mode-panel">
-            <h1>WYBIERZ SPOSÓB GRY</h1>
-            <button class="mode-button" id="pc-mode">KOMPUTER — KLAWIATURA</button>
-            <button class="mode-button" id="mobile-mode">TELEFON — DOTYK</button>
-            <button class="mode-button" id="sandbox-mode">PIASKOWNICA — MOBILNY + KLAWIATURA</button>
+    <div class="vhs-overlay"></div>
+    <div id="danger-vignette"></div>
+
+    <!-- EKRAN ŁADOWANIA -->
+    <div id="loading" class="modal-screen">
+        <div class="panel">
+            <h1>INICJALIZACJA TAŚMY VHS...</h1>
+            <p id="loading-status">Ładowanie silnika 3D i zasobów...</p>
         </div>
     </div>
-    <div id="loading">Generowanie podziemi...</div>
-    <div id="game-over">
-        <div class="game-over-panel">
-            <h1>PRZECIWNIK CIĘ DOPADŁ</h1>
-            <div class="game-over-stats" id="game-over-stats"></div>
-            <button type="button" class="game-over-button" id="game-over-reset" onclick="resetToMenu()">POWRÓT DO WYBORU TRYBU</button>
+
+    <!-- VHS HUD -->
+    <div id="vhs-hud">
+        <div class="hud-group">
+            <div><span class="rec-dot"></span>REC <span id="vhs-timer">00:00:00</span></div>
+            <div>POCZYTALNOŚĆ: <div class="stat-bar"><div id="sanity-bar" class="stat-fill" style="width: 100%;"></div></div></div>
+            <div>BATERIA: <div class="stat-bar"><div id="battery-bar" class="stat-fill" style="width: 100%;"></div></div></div>
+        </div>
+        <div class="hud-group" style="text-align: right;">
+            <div id="hud-floor">PIĘTRO 1 — PODZIEMIA</div>
+            <div id="hud-cassettes">KASETY: 0 / 3</div>
+            <div style="font-size: 12px; color: #888;">AUDIO: AKTYWNE</div>
         </div>
     </div>
+
+    <!-- START MENU -->
+    <div id="mode-picker" class="modal-screen">
+        <div class="panel">
+            <h1>BACKROOMS: V1.1</h1>
+            <p>Znajdź 3 Kasety VHS i odszukaj wyjście, zanim dopadnie Cię Byt. Kontroluj poziom poczytalności oraz baterię latarki.</p>
+            <button class="btn" id="pc-mode">KLAWIATURA (PC)</button>
+            <button class="btn" id="mobile-mode">EKRAN DOTYKOWY (MOBILE)</button>
+            <button class="btn" id="sandbox-mode">TRYB PIASKOWNICY (BEZ ŚCIAN)</button>
+        </div>
+    </div>
+
+    <!-- PAUSE MENU -->
+    <div id="pause-menu" class="modal-screen">
+        <div class="panel">
+            <h1>PAUZA</h1>
+            <p>Gra wstrzymana.</p>
+            <button class="btn" id="resume-btn">KONTYNUUJ [ESC]</button>
+            <button class="btn" onclick="location.reload()">MENU GŁÓWNE</button>
+        </div>
+    </div>
+
+    <!-- GAME OVER SCREEN -->
+    <div id="game-over" class="modal-screen">
+        <div class="panel">
+            <h1 style="color: #ff3333;">SYGNAŁ UTRACONY</h1>
+            <div id="game-over-stats" style="margin-bottom: 20px; line-height: 1.8; color: #ccc;"></div>
+            <button class="btn" onclick="location.reload()">SPRÓBUJ PONOWNIE</button>
+        </div>
+    </div>
+
     <canvas id="gameCanvas"></canvas>
+
+    <!-- DOLNY PASEK STEROWANIA -->
     <div id="ui-layer">
-        <p id="floor-label">Piętro 1 — Podziemia</p>
         <div id="desktop-controls">
-            <p>Strzałka <span class="key">↑</span> - krok naprzód</p>
-            <p>Strzałki <span class="key">←</span><span class="key">→</span> - obrót o 90°</p>
+            <p><span class="key">↑</span> Krok naprzód | <span class="key">←</span><span class="key">→</span> Obrót 90° | <span class="key">ESC</span> Pauza</p>
         </div>
         <div id="mobile-controls">
-            <button class="mobile-button" data-action="left" aria-label="Obrót w lewo">←</button>
-            <button class="mobile-button forward" data-action="forward" aria-label="Krok naprzód">↑</button>
-            <button class="mobile-button" data-action="right" aria-label="Obrót w prawo">→</button>
+            <button class="mobile-button" data-action="left">←</button>
+            <button class="mobile-button forward" data-action="forward">↑</button>
+            <button class="mobile-button" data-action="right">→</button>
         </div>
     </div>
-    <script>class AudioManager{constructor(){this.audioContext=null;this.sounds={};this.masterVolume=0.7;this.initialized=false;this.enemyNoiseSource=null;this.enemyNoiseGain=null;this.enemyNoiseFilter=null;}async init(){if(this.initialized)return;try{const AudioContext=window.AudioContext||window.webkitAudioContext;this.audioContext=new AudioContext();this.initialized=true;this.createSounds();this.startEnemyNoise();}catch(error){console.warn("Audio nie jest dostępne:",error);}}createSounds(){this.sounds.footstep=this.createFootstepSound();this.sounds.enemyNoise=this.createEnemyNoise();this.sounds.enemyFootstep=this.createEnemyFootstepSound();}createEnemyNoise(){const duration=2.0;const buffer=this.audioContext.createBuffer(1,Math.floor(this.audioContext.sampleRate*duration),this.audioContext.sampleRate);const data=buffer.getChannelData(0);let low=0;for(let i=0;i<data.length;i++){const white=Math.random()*2-1;low=low*0.985+white*0.015;data[i]=(white*0.22+low*0.95)*0.55;}return buffer;}startEnemyNoise(){if(!this.initialized||this.enemyNoiseSource)return;const source=this.audioContext.createBufferSource();const gain=this.audioContext.createGain();const filter=this.audioContext.createBiquadFilter();source.buffer=this.sounds.enemyNoise;source.loop=true;filter.type='lowpass';filter.frequency.value=700;filter.Q.value=0.8;gain.gain.value=0;source.connect(filter);filter.connect(gain);gain.connect(this.audioContext.destination);source.start();this.enemyNoiseSource=source;this.enemyNoiseGain=gain;this.enemyNoiseFilter=filter;}updateEnemyNoise(enemyGridX,enemyGridZ,playerGridX,playerGridZ){if(!this.initialized||!this.enemyNoiseGain)return;const distance=Math.hypot(enemyGridX-playerGridX,enemyGridZ-playerGridZ);const proximity=Math.max(0,Math.min(1,1-distance / 50));const volume=0.006+Math.pow(proximity,2.2)*0.32;const frequency=350+proximity*1400;const now=this.audioContext.currentTime;this.enemyNoiseGain.gain.cancelScheduledValues(now);this.enemyNoiseGain.gain.linearRampToValueAtTime(volume*this.masterVolume,now+0.12);this.enemyNoiseFilter.frequency.setTargetAtTime(frequency,now,0.15);}createEnemyFootstepSound(){const duration=0.20;const buffer=this.audioContext.createBuffer(1,Math.floor(this.audioContext.sampleRate*duration),this.audioContext.sampleRate);const data=buffer.getChannelData(0);for(let i=0;i<data.length;i++){const t=i / this.audioContext.sampleRate;const attack=Math.exp(-t*34);const body=Math.exp(-t*12);const thump=Math.sin(2*Math.PI*62*t)*0.55*body;const impact=Math.sin(2*Math.PI*105*t)*0.32*attack;const grit=(Math.random()*2-1)*0.10*attack;data[i]=(thump+impact+grit)*0.48;}return buffer;}createFootstepSound(){const duration=0.17;const buffer=this.audioContext.createBuffer(1,Math.floor(this.audioContext.sampleRate*duration),this.audioContext.sampleRate);const data=buffer.getChannelData(0);for(let i=0;i<data.length;i++){const t=i / this.audioContext.sampleRate;const attack=Math.exp(-t*38);const body=Math.exp(-t*15);const thump=Math.sin(2*Math.PI*78*t)*0.38*body;const impact=Math.sin(2*Math.PI*135*t)*0.28*attack;const noise=(Math.random()*2-1)*0.12*attack;data[i]=(thump+impact+noise)*0.58;}return buffer;}play(soundName,options={}){if(!this.initialized||!this.sounds[soundName])return;const buffer=this.sounds[soundName];const source=this.audioContext.createBufferSource();const gainNode=this.audioContext.createGain();source.buffer=buffer;gainNode.gain.value=(options.volume!==undefined?options.volume:1.0)*this.masterVolume;source.playbackRate.value=options.rate!==undefined?options.rate:1.0;source.connect(gainNode);gainNode.connect(this.audioContext.destination);source.start(this.audioContext.currentTime);}playFootstep(){if(!this.initialized||!this.sounds.footstep)return;const now=this.audioContext.currentTime;const source=this.audioContext.createBufferSource();const gain=this.audioContext.createGain();const filter=this.audioContext.createBiquadFilter();const echo=this.audioContext.createDelay(0.5);const echoGain=this.audioContext.createGain();source.buffer=this.sounds.footstep;source.playbackRate.value=0.94+Math.random()*0.10;filter.type='lowpass';filter.frequency.value=1500;filter.Q.value=0.7;gain.gain.value=(0.68+Math.random()*0.12)*this.masterVolume;echo.delayTime.value=0.18+Math.random()*0.07;echoGain.gain.value=0.24*this.masterVolume;source.connect(filter);filter.connect(gain);gain.connect(this.audioContext.destination);gain.connect(echo);echo.connect(echoGain);echoGain.connect(this.audioContext.destination);source.start(now);}playEnemyFootstep(distance=20){if(!this.initialized||!this.sounds.enemyFootstep)return;const now=this.audioContext.currentTime;const source=this.audioContext.createBufferSource();const gain=this.audioContext.createGain();const filter=this.audioContext.createBiquadFilter();const echo=this.audioContext.createDelay(0.65);const echoGain=this.audioContext.createGain();const proximity=Math.max(0,Math.min(1,1-distance / 50));source.buffer=this.sounds.enemyFootstep;source.playbackRate.value=0.88+Math.random()*0.08;filter.type='lowpass';filter.frequency.value=1150;filter.Q.value=0.55;const baseVolume=0.075;const nearBoost=proximity*0.10;gain.gain.value=(baseVolume+nearBoost)*this.masterVolume;echo.delayTime.value=0.24+Math.random()*0.12;echoGain.gain.value=(0.20+proximity*0.06)*this.masterVolume;source.connect(filter);filter.connect(gain);gain.connect(this.audioContext.destination);gain.connect(echo);echo.connect(echoGain);echoGain.connect(this.audioContext.destination);source.start(now);}setMasterVolume(volume){this.masterVolume=Math.max(0,Math.min(1,volume));}}const audioManager=new AudioManager();let scene,camera,renderer;let wallInstancedMesh,floorInstancedMesh,ceilInstancedMesh;let puddleInstancedMesh,wallStainInstancedMesh;let wallMaterial,floorMaterial,ceilMaterial,puddleMaterial,wallStainMaterial;let ambientLight,flashlight;let gameMode="pc";let sandboxMode=false;const BLOCK_SIZE=2;const HALF_BLOCK=BLOCK_SIZE / 2;const RENDER_RADIUS=12;const MAX_INSTANCES=(RENDER_RADIUS*2+1)*(RENDER_RADIUS*2+1);const MAX_PUDDLES=MAX_INSTANCES;const MAX_WALL_STAINS=MAX_INSTANCES*4;const DECAL_EPSILON=0.018;const DIRECTIONS=[{x:0,z:-1},{x:1,z:0},{x:0,z:1},{x:-1,z:0}];let gridX=0,gridZ=0;let currentYaw=0;let targetX=0,targetZ=0,targetYaw=0;let isMoving=false,isRotating=false;let floorSeed=Math.floor(Math.random()*2147483647);let lastWorldGridX=null,lastWorldGridZ=null;let enemyX=0,enemyZ=0;let enemyActive=false;let enemyMesh=null,enemyLight=null;const ENEMY_SPAWN_DISTANCE=30;const ENEMY_MAX_SEARCH=10000;const ENEMY_MOVE_DELAY=1000;let enemyMoveTimer=null;let gameStartTime=0;let playerSteps=0;let gameOver=false;function mod(n,m){return((n%m)+m)%m;}function pseudoRandom(x,z,salt){const extra=salt||0;const n=Math.sin((x+floorSeed*0.173+extra*19.19)*127.1+(z-floorSeed*0.311-extra*7.73)*311.7)*43758.5453123;return n-Math.floor(n);}function directionFromYaw(yaw){return{x:Math.round(Math.sin(-yaw)),z:Math.round(-Math.cos(-yaw))};}function isProtectedEntranceCell(x,z){return(x===0&&z===0)||(Math.abs(x)+Math.abs(z)===1);}function getCell(x,z){if(sandboxMode)return 0;if(isProtectedEntranceCell(x,z))return 0;const isEvenX=mod(x,2)===0;const isEvenZ=mod(z,2)===0;if(isEvenX&&isEvenZ)return 1;if(!isEvenX&&!isEvenZ)return 0;return pseudoRandom(x,z,1)<0.4?1:0;}function makeOrganicBlob(ctx,x,y,radiusX,radiusY,color,points){const pointCount=points||16;ctx.fillStyle=color;ctx.beginPath();for(let point=0;point<pointCount;point++){const angle=point / pointCount*Math.PI*2;const wobble=0.65+Math.random()*0.55;const px=x+Math.cos(angle)*radiusX*wobble;const py=y+Math.sin(angle)*radiusY*wobble;if(point===0)ctx.moveTo(px,py);else ctx.lineTo(px,py);}ctx.closePath();ctx.fill();}function pixelTexture(draw,size=32){const c=document.createElement("canvas");c.width=c.height=size;const x=c.getContext("2d");draw(x,size);const t=new THREE.CanvasTexture(c);t.magFilter=THREE.NearestFilter;t.minFilter=THREE.NearestMipmapNearestFilter;t.generateMipmaps=true;return t;}function createDirtTexture(base,n1,n2,isFloor){return pixelTexture((x,s)=>{x.fillStyle=base;x.fillRect(0,0,s,s);for(let i=0;i<180;i++){x.fillStyle=Math.random()>.5?n1:n2;const q=Math.random()*s,r=Math.random()*s,z=1+Math.random()*2;x.fillRect(q,r,z,z);}for(let i=0;i<12;i++){x.fillStyle=`rgba(8,8,8,${Math.random()*.35})`;x.fillRect(Math.random()*s,Math.random()*s,2+Math.random()*6,2+Math.random()*6);}if(isFloor){x.strokeStyle="rgba(0,0,0,.7)";x.lineWidth=1;x.strokeRect(0,0,s,s);}});}function createPuddleTexture(){return pixelTexture((x,s)=>{x.clearRect(0,0,s,s);for(let i=0;i<7;i++){const a=.07+i*.025;x.fillStyle=`rgba(24,43,35,${a})`;x.beginPath();x.ellipse(s/2+(Math.random()-.5)*3,s/2+(Math.random()-.5)*3,12-i*1.3,7-i*.7,Math.random(),0,Math.PI*2);x.fill();}x.strokeStyle="rgba(151,168,126,.16)";for(let i=0;i<2;i++){x.beginPath();x.ellipse(s/2,s/2,12+i*5,6+i*3,Math.random(),0,Math.PI*2);x.stroke();}});}function createWallStainTexture(){return pixelTexture((x,s)=>{x.clearRect(0,0,s,s);for(let i=0;i<18;i++){const q=Math.random()*s,r=Math.random()*s,w=2+Math.random()*5;x.fillStyle=`rgba(18,${49+Math.random()*28|0},25,${.1+Math.random()*.22})`;x.fillRect(q,r,w,1+Math.random()*5);if(Math.random()<.4)x.fillRect(q,r,w/2,5+Math.random()*8);}for(let i=0;i<35;i++){x.fillStyle=`rgba(24,71,32,${.08+Math.random()*.25})`;x.fillRect(Math.random()*s,Math.random()*s,1+Math.random()*2,1+Math.random()*2);}});}function manhattanDistance(x1,z1,x2,z2){return Math.abs(x1-x2)+Math.abs(z1-z2);}function isWalkable(x,z){return getCell(x,z)===0;}function hasPathBetween(startX,startZ,goalX,goalZ){if(startX===goalX&&startZ===goalZ)return true;if(!isWalkable(startX,startZ)||!isWalkable(goalX,goalZ))return false;const queue=[{x:startX,z:startZ}];const visited=new Set([startX+","+startZ]);let head=0;const dirs=[{x:0,z:-1},{x:1,z:0},{x:0,z:1},{x:-1,z:0}];const maxVisited=12000;while(head<queue.length&&visited.size<maxVisited){const current=queue[head++];for(const d of dirs){const nx=current.x+d.x;const nz=current.z+d.z;const key=nx+","+nz;if(visited.has(key)||!isWalkable(nx,nz))continue;if(nx===goalX&&nz===goalZ)return true;visited.add(key);queue.push({x:nx,z:nz});}}return false;}function findEnemySpawn(){const candidates=[];const d=ENEMY_SPAWN_DISTANCE;for(let dx=-d;dx<=d;dx++){const dzAbs=d-Math.abs(dx);const zs=dzAbs===0?[0]:[dzAbs,-dzAbs];for(const dz of zs){if(dx===0&&dz===0)continue;candidates.push({x:gridX+dx,z:gridZ+dz});}}for(let i=candidates.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[candidates[i],candidates[j]]=[candidates[j],candidates[i]];}for(const c of candidates){if(isWalkable(c.x,c.z)&&hasPathBetween(c.x,c.z,gridX,gridZ)){return c;}}for(const c of candidates){if(isWalkable(c.x,c.z))return c;}return{x:gridX,z:gridZ};}function createEnemy(){const geometry=new THREE.SphereGeometry(0.28,12,8);const material=new THREE.MeshStandardMaterial({color:0x8a6b42,emissive:0x3b230c,emissiveIntensity:1.4,roughness:0.65});enemyMesh=new THREE.Mesh(geometry,material);enemyMesh.position.set(enemyX*BLOCK_SIZE,-0.05,enemyZ*BLOCK_SIZE);enemyMesh.castShadow=true;scene.add(enemyMesh);enemyLight=new THREE.SpotLight(0xffe8b0,11.0,BLOCK_SIZE*4,Math.PI / 5,0.55,1.5);enemyLight.castShadow=true;enemyLight.shadow.mapSize.width=gameMode==="mobile"?512:1024;enemyLight.shadow.mapSize.height=gameMode==="mobile"?512:1024;enemyLight.shadow.camera.near=0.1;enemyLight.shadow.camera.far=BLOCK_SIZE*4;enemyLight.position.set(0,0.12,0);enemyLight.target.position.set(0,0,-2);enemyMesh.add(enemyLight);enemyMesh.add(enemyLight.target);enemyActive=true;}function updateEnemyLight(){if(!enemyMesh||!enemyLight)return;const dx=gridX-enemyX;const dz=gridZ-enemyZ;const len=Math.hypot(dx,dz)||1;enemyLight.target.position.set(0,0,-2);enemyMesh.rotation.y=Math.atan2(dx,-dz);audioManager.updateEnemyNoise(enemyX,enemyZ,gridX,gridZ);}function findFastestEnemyPath(){const startKey=enemyX+","+enemyZ;const goalKey=gridX+","+gridZ;if(startKey===goalKey)return[];const dirs=[{x:0,z:-1},{x:1,z:0},{x:0,z:1},{x:-1,z:0}];function heuristic(x,z){return Math.abs(x-gridX)+Math.abs(z-gridZ);}const open=[{x:enemyX,z:enemyZ,g:0,f:heuristic(enemyX,enemyZ)}];const cameFrom=new Map();const gScore=new Map([[startKey,0]]);const closed=new Set();while(open.length&&closed.size<ENEMY_MAX_SEARCH){let bestIndex=0;for(let i=1;i<open.length;i++){if(open[i].f<open[bestIndex].f)bestIndex=i;}const current=open.splice(bestIndex,1)[0];const currentKey=current.x+","+current.z;if(closed.has(currentKey))continue;closed.add(currentKey);if(current.x===gridX&&current.z===gridZ){const path=[];let key=currentKey;while(key!==startKey){const node=cameFrom.get(key);if(!node)return[];path.push({x:node.x,z:node.z});key=node.from;}path.reverse();return path;}for(const d of dirs){const nx=current.x+d.x;const nz=current.z+d.z;if(!isWalkable(nx,nz))continue;const neighborKey=nx+","+nz;if(closed.has(neighborKey))continue;const tentativeG=current.g+1;const oldG=gScore.has(neighborKey)?gScore.get(neighborKey):Infinity;if(tentativeG<oldG){gScore.set(neighborKey,tentativeG);cameFrom.set(neighborKey,{from:currentKey,x:nx,z:nz});open.push({x:nx,z:nz,g:tentativeG,f:tentativeG+heuristic(nx,nz)});}}}return[];}function moveEnemyOneStep(){if(!enemyActive)return;let path=findFastestEnemyPath();if(path.length===0&&!(enemyX===gridX&&enemyZ===gridZ)){const replacement=findEnemySpawn();enemyX=replacement.x;enemyZ=replacement.z;if(enemyMesh){enemyMesh.position.set(enemyX*BLOCK_SIZE,-0.05,enemyZ*BLOCK_SIZE);}path=findFastestEnemyPath();}if(path.length>0){const next=path[0];enemyX=next.x;enemyZ=next.z;if(enemyMesh){enemyMesh.position.set(enemyX*BLOCK_SIZE,-0.05,enemyZ*BLOCK_SIZE);}const enemyDistance=Math.hypot(enemyX-gridX,enemyZ-gridZ);audioManager.playEnemyFootstep(enemyDistance);updateEnemyLight();}if(enemyX===gridX&&enemyZ===gridZ){showGameOver();}}function formatGameTime(seconds){const total=Math.max(0,Math.floor(seconds));const minutes=Math.floor(total / 60);const secs=total%60;return String(minutes).padStart(2,"0")+":"+String(secs).padStart(2,"0");}function showGameOver(){if(gameOver)return;gameOver=true;enemyActive=false;if(enemyMoveTimer){clearInterval(enemyMoveTimer);enemyMoveTimer=null;}const elapsedSeconds=(performance.now()-gameStartTime)/ 1000;const distanceMeters=playerSteps*BLOCK_SIZE;const stats=document.getElementById("game-over-stats");stats.innerHTML="Czas gry:<strong>"+formatGameTime(elapsedSeconds)+"</strong><br>"+"Przebyta odległość:<strong>"+distanceMeters.toFixed(0)+" m</strong><br>"+"Przejścia między polami:<strong>"+playerSteps+"</strong>";const gameOverScreen=document.getElementById("game-over");gameOverScreen.style.display="flex";}function spawnEnemy(){const spawn=findEnemySpawn();enemyX=spawn.x;enemyZ=spawn.z;createEnemy();updateEnemyLight();}function init(){gameStartTime=performance.now();playerSteps=0;gameOver=false;const canvas=document.getElementById("gameCanvas");scene=new THREE.Scene();scene.background=new THREE.Color(0x090907);scene.fog=new THREE.FogExp2(0x090907,0.08);const cameraFov=gameMode==="mobile"?92:75;camera=new THREE.PerspectiveCamera(cameraFov,window.innerWidth / window.innerHeight,0.1,50);camera.position.set(0,0,0);renderer=new THREE.WebGLRenderer({canvas:canvas,antialias:gameMode!=="mobile",powerPreference:"high-performance"});renderer.setSize(window.innerWidth,window.innerHeight);renderer.setPixelRatio(Math.min(window.devicePixelRatio,gameMode==="mobile"?1.35:2));renderer.outputEncoding=THREE.sRGBEncoding;renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;ambientLight=new THREE.AmbientLight(0x000000,1);scene.add(ambientLight);flashlight=new THREE.SpotLight(0xfff4d2,5.5,BLOCK_SIZE*2.2,Math.PI / 5,0.62,2);flashlight.position.set(0,0.02,-0.12);flashlight.target.position.set(0,0.02,-2.4);flashlight.castShadow=gameMode!=="mobile";flashlight.shadow.mapSize.width=gameMode==="mobile"?512:1024;flashlight.shadow.mapSize.height=gameMode==="mobile"?512:1024;flashlight.shadow.camera.near=0.1;flashlight.shadow.camera.far=BLOCK_SIZE*2.2;camera.add(flashlight);camera.add(flashlight.target);scene.add(camera);const wallTex=createDirtTexture("#30302c","#151513","#4a4940",false);const floorTex=createDirtTexture("#292925","#11110f","#44433b",true);const ceilTex=createDirtTexture("#0d0d0d","#000000","#151515",true);const puddleTex=createPuddleTexture();const wallStainTex=createWallStainTexture();wallMaterial=new THREE.MeshStandardMaterial({map:wallTex,roughness:0.9,metalness:0.1,color:0x55544d});floorMaterial=new THREE.MeshStandardMaterial({map:floorTex,roughness:1.0,color:0x46453f});ceilMaterial=new THREE.MeshStandardMaterial({map:ceilTex,roughness:1.0,color:0x353530});puddleMaterial=new THREE.MeshStandardMaterial({map:puddleTex,transparent:true,alphaTest:0.04,depthWrite:false,roughness:0.12,metalness:0.28,color:0x65706c});wallStainMaterial=new THREE.MeshStandardMaterial({map:wallStainTex,transparent:true,alphaTest:0.05,depthWrite:false,color:0xffffff,side:THREE.DoubleSide,roughness:1});const boxGeo=new THREE.BoxGeometry(BLOCK_SIZE,BLOCK_SIZE,BLOCK_SIZE);const floorGeo=new THREE.PlaneGeometry(BLOCK_SIZE,BLOCK_SIZE);floorGeo.rotateX(-Math.PI / 2);const ceilGeo=new THREE.PlaneGeometry(BLOCK_SIZE,BLOCK_SIZE);ceilGeo.rotateX(Math.PI / 2);const puddleGeo=new THREE.PlaneGeometry(1,1);puddleGeo.rotateX(-Math.PI / 2);const wallStainGeo=new THREE.PlaneGeometry(1,1);wallInstancedMesh=new THREE.InstancedMesh(boxGeo,wallMaterial,MAX_INSTANCES);floorInstancedMesh=new THREE.InstancedMesh(floorGeo,floorMaterial,MAX_INSTANCES);ceilInstancedMesh=new THREE.InstancedMesh(ceilGeo,ceilMaterial,MAX_INSTANCES);puddleInstancedMesh=new THREE.InstancedMesh(puddleGeo,puddleMaterial,MAX_PUDDLES);wallStainInstancedMesh=new THREE.InstancedMesh(wallStainGeo,wallStainMaterial,MAX_WALL_STAINS);[wallInstancedMesh,floorInstancedMesh,ceilInstancedMesh,puddleInstancedMesh,wallStainInstancedMesh].forEach(mesh=>{mesh.frustumCulled=false;mesh.receiveShadow=true;scene.add(mesh);});wallInstancedMesh.castShadow=true;audioManager.init();updateWorld();spawnEnemy();if(enemyMoveTimer)clearInterval(enemyMoveTimer);enemyMoveTimer=setInterval(function(){if(enemyActive)moveEnemyOneStep();},ENEMY_MOVE_DELAY);setTimeout(function(){const loading=document.getElementById("loading");loading.style.opacity="0";setTimeout(()=>loading.style.display="none",500);},100);requestAnimationFrame(animate);}function updateWorld(){const dummy=new THREE.Object3D();const decalDummy=new THREE.Object3D();let wallCount=0;let floorCount=0;let ceilCount=0;let puddleCount=0;let wallStainCount=0;for(let x=gridX-RENDER_RADIUS;x<=gridX+RENDER_RADIUS;x++){for(let z=gridZ-RENDER_RADIUS;z<=gridZ+RENDER_RADIUS;z++){const cellType=getCell(x,z);const worldX=x*BLOCK_SIZE;const worldZ=z*BLOCK_SIZE;if(cellType===1){dummy.position.set(worldX,0,worldZ);dummy.rotation.set(0,0,0);dummy.scale.set(1,1,1);dummy.updateMatrix();wallInstancedMesh.setMatrixAt(wallCount++,dummy.matrix);const faces=[{dx:0,dz:1,x:0,z:HALF_BLOCK+DECAL_EPSILON,rotation:0},{dx:0,dz:-1,x:0,z:-HALF_BLOCK-DECAL_EPSILON,rotation:Math.PI},{dx:1,dz:0,x:HALF_BLOCK+DECAL_EPSILON,z:0,rotation:Math.PI / 2},{dx:-1,dz:0,x:-HALF_BLOCK-DECAL_EPSILON,z:0,rotation:-Math.PI / 2}];faces.forEach(function(face,faceIndex){if(wallStainCount>=MAX_WALL_STAINS||getCell(x+face.dx,z+face.dz)!==0||pseudoRandom(x,z,100+faceIndex*9)>=0.32){return;}const width=0.42+pseudoRandom(x,z,101+faceIndex*9)*0.98;const height=0.38+pseudoRandom(x,z,102+faceIndex*9)*0.92;const y=-0.36+pseudoRandom(x,z,103+faceIndex*9)*0.54;decalDummy.position.set(worldX+face.x,y,worldZ+face.z);decalDummy.rotation.set(0,face.rotation,0);decalDummy.scale.set(width,height,1);decalDummy.updateMatrix();wallStainInstancedMesh.setMatrixAt(wallStainCount++,decalDummy.matrix);});}else{dummy.position.set(worldX,-HALF_BLOCK,worldZ);dummy.rotation.set(0,0,0);dummy.scale.set(1,1,1);dummy.updateMatrix();floorInstancedMesh.setMatrixAt(floorCount++,dummy.matrix);if(!sandboxMode){dummy.position.set(worldX,HALF_BLOCK,worldZ);dummy.updateMatrix();ceilInstancedMesh.setMatrixAt(ceilCount++,dummy.matrix);if(puddleCount<MAX_PUDDLES&&!(x===0&&z===0)&&pseudoRandom(x,z,11)<0.17){const scaleX=0.45+pseudoRandom(x,z,12)*0.95;const scaleZ=0.26+pseudoRandom(x,z,13)*0.62;decalDummy.position.set(worldX+(pseudoRandom(x,z,14)-0.5)*0.55,-HALF_BLOCK+DECAL_EPSILON,worldZ+(pseudoRandom(x,z,15)-0.5)*0.55);decalDummy.rotation.set(0,pseudoRandom(x,z,16)*Math.PI*2,0);decalDummy.scale.set(scaleX,scaleZ,1);decalDummy.updateMatrix();puddleInstancedMesh.setMatrixAt(puddleCount++,decalDummy.matrix);}}}}}wallInstancedMesh.count=wallCount;wallInstancedMesh.instanceMatrix.needsUpdate=true;floorInstancedMesh.count=floorCount;floorInstancedMesh.instanceMatrix.needsUpdate=true;ceilInstancedMesh.count=ceilCount;ceilInstancedMesh.instanceMatrix.needsUpdate=true;puddleInstancedMesh.count=puddleCount;puddleInstancedMesh.instanceMatrix.needsUpdate=true;wallStainInstancedMesh.count=wallStainCount;wallStainInstancedMesh.instanceMatrix.needsUpdate=true;lastWorldGridX=gridX;lastWorldGridZ=gridZ;}function moveForward(){if(isMoving)return;const direction=directionFromYaw(currentYaw);const nextX=gridX+direction.x;const nextZ=gridZ+direction.z;if(getCell(nextX,nextZ)===0){isMoving=true;targetX=nextX*BLOCK_SIZE;targetZ=nextZ*BLOCK_SIZE;gridX=nextX;gridZ=nextZ;playerSteps++;audioManager.playFootstep();}}function rotateLeft(){if(isRotating)return;isRotating=true;targetYaw=currentYaw+Math.PI / 2;}function rotateRight(){if(isRotating)return;isRotating=true;targetYaw=currentYaw-Math.PI / 2;}function resetToMenu(){if(enemyMoveTimer){clearInterval(enemyMoveTimer);enemyMoveTimer=null;}enemyActive=false;window.location.href=window.location.href;}function handleKeyDown(event){const key=event.key.toLowerCase();if(key==="q"&&gameOver){event.preventDefault();resetToMenu();return;}if(gameMode!=="pc"&&!sandboxMode)return;if(key==="arrowup")moveForward();if(key==="arrowleft")rotateLeft();if(key==="arrowright")rotateRight();}function animate(now){if(enemyActive)audioManager.updateEnemyNoise(enemyX,enemyZ,gridX,gridZ);const elapsed=now-(animate.lastTime||now);animate.lastTime=now;const dt=Math.min(elapsed / 1000,0.1);if(isMoving){const dist=Math.hypot(targetX-camera.position.x,targetZ-camera.position.z);if(dist<0.05){camera.position.x=targetX;camera.position.z=targetZ;isMoving=false;if(gridX!==lastWorldGridX||gridZ!==lastWorldGridZ){updateWorld();}}else{const speed=8;const moveX=(targetX-camera.position.x)/ dist*speed*dt;const moveZ=(targetZ-camera.position.z)/ dist*speed*dt;camera.position.x+=moveX;camera.position.z+=moveZ;}}if(isRotating){let diff=targetYaw-currentYaw;if(diff>Math.PI)diff-=Math.PI*2;if(diff<-Math.PI)diff+=Math.PI*2;if(Math.abs(diff)<0.05){currentYaw=targetYaw;isRotating=false;}else{const speed=3;currentYaw+=diff / Math.abs(diff)*speed*dt;}camera.rotation.y=currentYaw;}camera.position.y=0;renderer.render(scene,camera);requestAnimationFrame(animate);}document.addEventListener("keydown",handleKeyDown);const modePicker=document.getElementById("mode-picker");const pcModeBtn=document.getElementById("pc-mode");const mobileModeBtn=document.getElementById("mobile-mode");if(pcModeBtn){pcModeBtn.addEventListener("click",function(){gameMode="pc";sandboxMode=false;document.body.classList.remove("mobile-mode");modePicker.style.display="none";init();});}if(mobileModeBtn){mobileModeBtn.addEventListener("click",function(){gameMode="mobile";modePicker.style.display="none";document.body.classList.add("mobile-mode");init();setupMobileControls();});}const sandboxModeBtn=document.getElementById("sandbox-mode");if(sandboxModeBtn){sandboxModeBtn.addEventListener("click",function(){gameMode="mobile";sandboxMode=true;document.body.classList.add("mobile-mode");modePicker.style.display="none";document.getElementById("floor-label").textContent="Piaskownica — płaska powierzchnia";init();setupMobileControls();});}function setupMobileControls(){const buttons=document.querySelectorAll(".mobile-button");buttons.forEach(function(button){const action=button.getAttribute("data-action");button.addEventListener("touchstart",function(e){e.preventDefault();if(action==="forward")moveForward();if(action==="left")rotateLeft();if(action==="right")rotateRight();});});}const gameOverResetButton=document.getElementById("game-over-reset");if(gameOverResetButton){gameOverResetButton.addEventListener("click",function(e){e.preventDefault();resetToMenu();});gameOverResetButton.addEventListener("touchend",function(e){e.preventDefault();resetToMenu();},{passive:false});gameOverResetButton.addEventListener("pointerup",function(e){if(e.pointerType==="touch")return;resetToMenu();});}window.addEventListener("resize",function(){if(camera&&renderer){const newWidth=window.innerWidth;const newHeight=window.innerHeight;camera.aspect=newWidth / newHeight;camera.updateProjectionMatrix();renderer.setSize(newWidth,newHeight);}});</script>
+
+<script>
+// --- ZMIENNE SILNIKA I GRY ---
+let scene, camera, renderer;
+let wallInstancedMesh, floorInstancedMesh, ceilInstancedMesh;
+let flashlight, ambientLight, dustParticles;
+let wallTex, floorTex;
+
+let sandboxMode = false;
+let isPaused = false, gameOver = false;
+let currentLevel = 1;
+
+const BLOCK_SIZE = 2;
+const HALF_BLOCK = BLOCK_SIZE / 2;
+const RENDER_RADIUS = 8;
+const MAX_INSTANCES = (RENDER_RADIUS * 2 + 1) ** 2;
+
+let gridX = 0, gridZ = 0;
+let currentYaw = 0, targetYaw = 0;
+let targetX = 0, targetZ = 0;
+let isMoving = false, isRotating = false;
+let headBobTimer = 0;
+
+let sanity = 100, battery = 100;
+let cassettesCollected = 0, totalCassettes = 3;
+let collectibles = [];
+
+let enemyX = 0, enemyZ = 0, enemyActive = false, enemyMesh = null;
+let enemyMoveTimer = null;
+let gameStartTime = 0, playerSteps = 0;
+let floorSeed = Math.floor(Math.random() * 200000);
+
+// --- AUDIO MANAGER ---
+class AudioManager {
+    constructor() {
+        this.ctx = null;
+        this.initialized = false;
+        this.enemyNoiseGain = null;
+        this.enemyNoiseFilter = null;
+        this.heartbeatGain = null;
+    }
+
+    async init() {
+        if (this.initialized) return;
+        try {
+            const AudioCtx = window.AudioContext || window.webkitAudioContext;
+            if (!AudioCtx) return;
+            this.ctx = new AudioCtx();
+            if (this.ctx.state === 'suspended') {
+                await this.ctx.resume();
+            }
+            this.initialized = true;
+            this.startFluorescentHum();
+            this.setupEnemyNoise();
+            this.setupHeartbeat();
+        } catch (e) { console.warn("Audio Context init error:", e); }
+    }
+
+    startFluorescentHum() {
+        if (!this.initialized || !this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        const filter = this.ctx.createBiquadFilter();
+        
+        osc.type = 'sawtooth';
+        osc.frequency.value = 50;
+        filter.type = 'lowpass';
+        filter.frequency.value = 180;
+        gain.gain.value = 0.03;
+
+        osc.connect(filter);
+        filter.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+    }
+
+    setupEnemyNoise() {
+        if (!this.initialized || !this.ctx) return;
+        const bufferSize = this.ctx.sampleRate * 2;
+        const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        let low = 0;
+        for (let i = 0; i < bufferSize; i++) {
+            const white = Math.random() * 2 - 1;
+            low = low * 0.98 + white * 0.02;
+            data[i] = low * 0.8;
+        }
+
+        const source = this.ctx.createBufferSource();
+        source.buffer = buffer;
+        source.loop = true;
+
+        const filter = this.ctx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.value = 400;
+
+        const gain = this.ctx.createGain();
+        gain.gain.value = 0;
+
+        source.connect(filter);
+        filter.connect(gain);
+        gain.connect(this.ctx.destination);
+        source.start();
+
+        this.enemyNoiseGain = gain;
+        this.enemyNoiseFilter = filter;
+    }
+
+    setupHeartbeat() {
+        if (!this.initialized || !this.ctx) return;
+        const gain = this.ctx.createGain();
+        gain.gain.value = 0;
+        gain.connect(this.ctx.destination);
+        this.heartbeatGain = gain;
+    }
+
+    triggerHeartbeat() {
+        if (!this.initialized || !this.ctx || !this.heartbeatGain) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const subGain = this.ctx.createGain();
+        
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(60, now);
+        osc.frequency.exponentialRampToValueAtTime(30, now + 0.15);
+
+        subGain.gain.setValueAtTime(0.3, now);
+        subGain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+
+        osc.connect(subGain);
+        subGain.connect(this.heartbeatGain);
+        osc.start(now);
+        osc.stop(now + 0.16);
+    }
+
+    updateEnemyAudio(dist) {
+        if (!this.initialized || !this.ctx || !this.enemyNoiseGain) return;
+        const prox = Math.max(0, Math.min(1, 1 - dist / 30));
+        const now = this.ctx.currentTime;
+        this.enemyNoiseGain.gain.setTargetAtTime(Math.pow(prox, 2) * 0.3, now, 0.1);
+        this.enemyNoiseFilter.frequency.setTargetAtTime(200 + prox * 1000, now, 0.1);
+    }
+
+    playFootstep() {
+        if (!this.initialized || !this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(110, now);
+        osc.frequency.exponentialRampToValueAtTime(30, now + 0.08);
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.linearRampToValueAtTime(0.01, now + 0.08);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.09);
+    }
+
+    playPickup() {
+        if (!this.initialized || !this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(440, now);
+        osc.frequency.exponentialRampToValueAtTime(880, now + 0.15);
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.linearRampToValueAtTime(0.01, now + 0.15);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.16);
+    }
+
+    playJumpscare() {
+        if (!this.initialized || !this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(160, now);
+        osc.frequency.linearRampToValueAtTime(30, now + 0.6);
+        gain.gain.setValueAtTime(0.7, now);
+        gain.gain.linearRampToValueAtTime(0.01, now + 0.6);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.61);
+    }
+}
+
+const audio = new AudioManager();
+
+// --- MAPA I GENERACJA ---
+function mod(n, m) { return ((n % m) + m) % m; }
+function pseudoRandom(x, z, salt = 0) {
+    const n = Math.sin((x + floorSeed * 0.17 + salt * 19.1) * 127.1 + (z - floorSeed * 0.31) * 311.7) * 43758.545;
+    return n - Math.floor(n);
+}
+
+function directionFromYaw(yaw) {
+    return { x: Math.round(Math.sin(-yaw)), z: Math.round(-Math.cos(-yaw)) };
+}
+
+function isWalkable(x, z) {
+    if (sandboxMode) return true;
+    if (x === 0 && z === 0) return true;
+    const isEvenX = mod(x, 2) === 0;
+    const isEvenZ = mod(z, 2) === 0;
+    if (isEvenX && isEvenZ) return false;
+    if (!isEvenX && !isEvenZ) return true;
+    return pseudoRandom(x, z, 1) >= 0.38;
+}
+
+function createTexture(drawFn, size = 64) {
+    const c = document.createElement("canvas");
+    c.width = c.height = size;
+    const ctx = c.getContext("2d");
+    drawFn(ctx, size);
+    const t = new THREE.CanvasTexture(c);
+    t.magFilter = THREE.NearestFilter;
+    return t;
+}
+
+function initTextures() {
+    wallTex = createTexture((x, s) => {
+        x.fillStyle = "#8a8258"; x.fillRect(0,0,s,s);
+        for(let i=0; i<200; i++) {
+            x.fillStyle = Math.random() > 0.5 ? "rgba(0,0,0,0.08)" : "rgba(255,255,255,0.05)";
+            x.fillRect(Math.random()*s, Math.random()*s, 2, 2);
+        }
+    });
+
+    floorTex = createTexture((x, s) => {
+        x.fillStyle = "#5c5339"; x.fillRect(0,0,s,s);
+        x.strokeStyle = "rgba(0,0,0,0.3)"; x.strokeRect(0,0,s,s);
+    });
+}
+
+// --- BOOTSTRAP & INICJALIZACJA ---
+function showError(msg) {
+    const loadingEl = document.getElementById("loading");
+    if (loadingEl) {
+        loadingEl.style.display = "flex";
+        loadingEl.style.zIndex = "2000";
+        loadingEl.innerHTML = `
+            <div class="panel">
+                <h1 style="color: #ff3333;">BŁĄD SYSTEMU</h1>
+                <p style="color: #fff;">${msg}</p>
+                <button class="btn" onclick="location.reload()">SPRÓBUJ PONOWNIE</button>
+            </div>
+        `;
+    }
+}
+
+function boot() {
+    let checkAttempts = 0;
+    const checkThree = setInterval(() => {
+        checkAttempts++;
+        if (typeof THREE !== 'undefined') {
+            clearInterval(checkThree);
+            try {
+                initTextures();
+                document.getElementById("loading").style.display = "none";
+                document.getElementById("mode-picker").style.display = "flex";
+            } catch (e) {
+                showError("Nie udało się utworzyć struktur graficznych: " + e.message);
+            }
+        } else if (checkAttempts > 25) {
+            clearInterval(checkThree);
+            showError("Nie można załadować biblioteki Three.js. Sprawdź połączenie sieciowe.");
+        }
+    }, 150);
+}
+
+function startGame(mode) {
+    if (mode === "mobile") document.body.classList.add("mobile-mode");
+    if (mode === "sandbox") sandboxMode = true;
+
+    document.getElementById("mode-picker").style.display = "none";
+
+    audio.init();
+    initGameEngine();
+}
+
+function initGameEngine() {
+    gameStartTime = performance.now();
+    playerSteps = 0; gameOver = false; isPaused = false;
+    sanity = 100; battery = 100; cassettesCollected = 0;
+
+    const canvas = document.getElementById("gameCanvas");
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x050504);
+    scene.fog = new THREE.FogExp2(0x050504, 0.09);
+
+    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 30);
+    camera.position.set(0, 0, 0);
+
+    renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: "high-performance" });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.25));
+
+    ambientLight = new THREE.AmbientLight(0x11110e, 0.8);
+    scene.add(ambientLight);
+
+    flashlight = new THREE.SpotLight(0xfff5d0, 4.5, 18, Math.PI / 5, 0.5, 1.5);
+    flashlight.position.set(0, 0, -0.1);
+    flashlight.target.position.set(0, 0, -2);
+    camera.add(flashlight);
+    camera.add(flashlight.target);
+    scene.add(camera);
+
+    // Cząsteczki Pyłu
+    const dustGeo = new THREE.BufferGeometry();
+    const dustCoords = [];
+    for(let i=0; i<100; i++) {
+        dustCoords.push((Math.random()-0.5)*16, (Math.random()-0.5)*8, (Math.random()-0.5)*16);
+    }
+    dustGeo.setAttribute('position', new THREE.Float32BufferAttribute(dustCoords, 3));
+    const dustMat = new THREE.PointsMaterial({ color: 0xe0be36, size: 0.04, transparent: true, opacity: 0.3 });
+    dustParticles = new THREE.Points(dustGeo, dustMat);
+    scene.add(dustParticles);
+
+    // Instanced Meshes (TUTAJ ZNAJDOWAŁ SIĘ BŁĄD)
+    const boxGeo = new THREE.BoxGeometry(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
+    
+    // Tworzymy dwie OSOBNE geometrie dla podłogi i sufitu
+    const floorGeo = new THREE.PlaneGeometry(BLOCK_SIZE, BLOCK_SIZE);
+    floorGeo.rotateX(-Math.PI / 2);
+    
+    const ceilGeo = new THREE.PlaneGeometry(BLOCK_SIZE, BLOCK_SIZE);
+    ceilGeo.rotateX(Math.PI / 2);
+
+    const wallMat = new THREE.MeshLambertMaterial({ map: wallTex });
+    const floorMat = new THREE.MeshLambertMaterial({ map: floorTex });
+
+    wallInstancedMesh = new THREE.InstancedMesh(boxGeo, wallMat, MAX_INSTANCES);
+    floorInstancedMesh = new THREE.InstancedMesh(floorGeo, floorMat, MAX_INSTANCES);
+    ceilInstancedMesh = new THREE.InstancedMesh(ceilGeo, floorMat, MAX_INSTANCES);
+
+    scene.add(wallInstancedMesh, floorInstancedMesh, ceilInstancedMesh);
+
+    spawnCollectibles();
+    spawnEnemy();
+    updateWorld();
+
+    if (enemyMoveTimer) clearInterval(enemyMoveTimer);
+    enemyMoveTimer = setInterval(() => { if (enemyActive && !isPaused) moveEnemy(); }, 900 - currentLevel * 40);
+
+    requestAnimationFrame(animate);
+}
+
+// --- GENEROWANIE I LOGIKA PRZEDMIOTÓW ---
+function spawnCollectibles() {
+    collectibles.forEach(c => {
+        if (c.mesh) scene.remove(c.mesh);
+    });
+    collectibles = [];
+
+    const geomCassette = new THREE.BoxGeometry(0.3, 0.1, 0.2);
+    const matCassette = new THREE.MeshBasicMaterial({ color: 0xe0be36 });
+
+    const geomBattery = new THREE.CylinderGeometry(0.08, 0.08, 0.25);
+    const matBattery = new THREE.MeshBasicMaterial({ color: 0x00ff66 });
+
+    const walkableCells = [];
+    for (let dx = -6; dx <= 6; dx++) {
+        for (let dz = -6; dz <= 6; dz++) {
+            if ((dx !== 0 || dz !== 0) && isWalkable(dx, dz)) {
+                walkableCells.push({ x: dx, z: dz });
+            }
+        }
+    }
+
+    // Losowe tasowanie pozycji
+    for (let i = walkableCells.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [walkableCells[i], walkableCells[j]] = [walkableCells[j], walkableCells[i]];
+    }
+
+    let cellIdx = 0;
+    // Puste kasety VHS
+    for (let i = 0; i < totalCassettes && cellIdx < walkableCells.length; i++) {
+        const cell = walkableCells[cellIdx++];
+        const mesh = new THREE.Mesh(geomCassette, matCassette);
+        mesh.position.set(cell.x * BLOCK_SIZE, -0.8, cell.z * BLOCK_SIZE);
+        scene.add(mesh);
+        collectibles.push({ x: cell.x, z: cell.z, mesh, type: 'cassette' });
+    }
+
+    // Baterie do latarki
+    while (cellIdx < walkableCells.length) {
+        const cell = walkableCells[cellIdx++];
+        if (Math.random() < 0.15) {
+            const mesh = new THREE.Mesh(geomBattery, matBattery);
+            mesh.position.set(cell.x * BLOCK_SIZE, -0.8, cell.z * BLOCK_SIZE);
+            scene.add(mesh);
+            collectibles.push({ x: cell.x, z: cell.z, mesh, type: 'battery' });
+        }
+    }
+}
+
+// --- POTWÓR ---
+function spawnEnemy() {
+    if (enemyMesh) scene.remove(enemyMesh);
+    const geom = new THREE.SphereGeometry(0.35, 8, 8);
+    const mat = new THREE.MeshBasicMaterial({ color: 0xff1111, wireframe: true });
+    enemyMesh = new THREE.Mesh(geom, mat);
+    
+    enemyX = gridX + 7; enemyZ = gridZ + 7;
+    enemyMesh.position.set(enemyX * BLOCK_SIZE, 0, enemyZ * BLOCK_SIZE);
+    scene.add(enemyMesh);
+    enemyActive = true;
+}
+
+function moveEnemy() {
+    if (!enemyActive || gameOver || isPaused) return;
+    const dx = Math.sign(gridX - enemyX);
+    const dz = Math.sign(gridZ - enemyZ);
+
+    if (Math.abs(gridX - enemyX) > Math.abs(gridZ - enemyZ)) {
+        if (isWalkable(enemyX + dx, enemyZ)) enemyX += dx;
+        else if (isWalkable(enemyX, enemyZ + dz)) enemyZ += dz;
+    } else {
+        if (isWalkable(enemyX, enemyZ + dz)) enemyZ += dz;
+        else if (isWalkable(enemyX + dx, enemyZ)) enemyX += dx;
+    }
+
+    enemyMesh.position.set(enemyX * BLOCK_SIZE, 0, enemyZ * BLOCK_SIZE);
+
+    if (enemyX === gridX && enemyZ === gridZ) {
+        audio.playJumpscare();
+        triggerGameOver("BYT CIĘ DOPADŁ");
+    }
+}
+
+// --- AKTUALIZACJA SIATKI 3D ---
+function updateWorld() {
+    if (!wallInstancedMesh) return;
+    const dummy = new THREE.Object3D();
+    let wallIdx = 0, floorIdx = 0, ceilIdx = 0;
+
+    for (let x = gridX - RENDER_RADIUS; x <= gridX + RENDER_RADIUS; x++) {
+        for (let z = gridZ - RENDER_RADIUS; z <= gridZ + RENDER_RADIUS; z++) {
+            const wx = x * BLOCK_SIZE, wz = z * BLOCK_SIZE;
+            if (!isWalkable(x, z)) {
+                if (wallIdx < MAX_INSTANCES) {
+                    dummy.position.set(wx, 0, wz);
+                    dummy.updateMatrix();
+                    wallInstancedMesh.setMatrixAt(wallIdx++, dummy.matrix);
+                }
+            } else {
+                if (floorIdx < MAX_INSTANCES) {
+                    dummy.position.set(wx, -HALF_BLOCK, wz);
+                    dummy.updateMatrix();
+                    floorInstancedMesh.setMatrixAt(floorIdx++, dummy.matrix);
+                }
+                if (ceilIdx < MAX_INSTANCES) {
+                    dummy.position.set(wx, HALF_BLOCK, wz);
+                    dummy.updateMatrix();
+                    ceilInstancedMesh.setMatrixAt(ceilIdx++, dummy.matrix);
+                }
+            }
+        }
+    }
+    wallInstancedMesh.count = wallIdx; wallInstancedMesh.instanceMatrix.needsUpdate = true;
+    floorInstancedMesh.count = floorIdx; floorInstancedMesh.instanceMatrix.needsUpdate = true;
+    ceilInstancedMesh.count = ceilIdx; ceilInstancedMesh.instanceMatrix.needsUpdate = true;
+}
+
+// --- PORUSZANIE SIĘ ---
+function moveForward() {
+    if (isMoving || isRotating || isPaused || gameOver) return;
+    const dir = directionFromYaw(currentYaw);
+    const nx = gridX + dir.x, nz = gridZ + dir.z;
+    if (isWalkable(nx, nz)) {
+        isMoving = true;
+        targetX = nx * BLOCK_SIZE; targetZ = nz * BLOCK_SIZE;
+        gridX = nx; gridZ = nz;
+        playerSteps++;
+        audio.playFootstep();
+        checkCollectibles();
+    }
+}
+
+function checkCollectibles() {
+    collectibles = collectibles.filter(c => {
+        if (c.x === gridX && c.z === gridZ) {
+            scene.remove(c.mesh);
+            audio.playPickup();
+            if (c.type === 'cassette') {
+                cassettesCollected++;
+                document.getElementById("hud-cassettes").textContent = `KASETY: ${cassettesCollected} / ${totalCassettes}`;
+                if (cassettesCollected >= totalCassettes) {
+                    currentLevel++;
+                    document.getElementById("hud-floor").textContent = `PIĘTRO ${currentLevel} — PODZIEMIA`;
+                    cassettesCollected = 0;
+                    spawnCollectibles();
+                }
+            } else if (c.type === 'battery') {
+                battery = Math.min(100, battery + 40);
+            }
+            return false;
+        }
+        return true;
+    });
+}
+
+function rotateLeft() { if (!isRotating && !isPaused && !gameOver) { isRotating = true; targetYaw = currentYaw + Math.PI / 2; } }
+function rotateRight() { if (!isRotating && !isPaused && !gameOver) { isRotating = true; targetYaw = currentYaw - Math.PI / 2; } }
+
+function togglePause() {
+    if (gameOver) return;
+    isPaused = !isPaused;
+    document.getElementById("pause-menu").style.display = isPaused ? "flex" : "none";
+}
+
+// --- MAIN LOOP ---
+function animate(now) {
+    if (gameOver) return;
+
+    const dt = 0.016;
+
+    // VHS Czas
+    const elapsedSec = Math.floor((now - gameStartTime) / 1000);
+    const hrs = String(Math.floor(elapsedSec / 3600)).padStart(2, '0');
+    const mins = String(Math.floor((elapsedSec % 3600) / 60)).padStart(2, '0');
+    const secs = String(elapsedSec % 60).padStart(2, '0');
+    document.getElementById("vhs-timer").textContent = `${hrs}:${mins}:${secs}`;
+
+    if (!isPaused) {
+        // Płynna translacja pozycji
+        if (isMoving) {
+            const dist = Math.hypot(targetX - camera.position.x, targetZ - camera.position.z);
+            if (dist < 0.05) {
+                camera.position.x = targetX; camera.position.z = targetZ;
+                isMoving = false; updateWorld();
+            } else {
+                camera.position.x += (targetX - camera.position.x) * 12 * dt;
+                camera.position.z += (targetZ - camera.position.z) * 12 * dt;
+            }
+            headBobTimer += 0.15;
+            camera.position.y = Math.sin(headBobTimer) * 0.04;
+        }
+
+        // Płynny obrót
+        if (isRotating) {
+            let diff = targetYaw - currentYaw;
+            if (Math.abs(diff) < 0.04) { currentYaw = targetYaw; isRotating = false; }
+            else { currentYaw += Math.sign(diff) * 6 * dt; }
+            camera.rotation.y = currentYaw;
+        }
+
+        // Zużycie baterii
+        battery = Math.max(0, battery - dt * 0.7);
+        document.getElementById("battery-bar").style.width = `${battery}%`;
+
+        // Bliskość wroga i psychika
+        const distToEnemy = Math.hypot(enemyX - gridX, enemyZ - gridZ);
+        audio.updateEnemyAudio(distToEnemy);
+
+        if (distToEnemy < 6) {
+            sanity = Math.max(0, sanity - dt * 12);
+            audio.triggerHeartbeat();
+            document.getElementById("danger-vignette").style.opacity = (1 - distToEnemy / 6);
+        } else {
+            document.getElementById("danger-vignette").style.opacity = 0;
+        }
+        document.getElementById("sanity-bar").style.width = `${sanity}%`;
+
+        if (sanity <= 0) triggerGameOver("STRACIŁEŚ POCZYTALNOŚĆ");
+
+        flashlight.intensity = (battery / 100) * 4.5 * (Math.random() > 0.04 ? 1 : 0.2);
+        dustParticles.position.copy(camera.position);
+    }
+
+    renderer.render(scene, camera);
+    requestAnimationFrame(animate);
+}
+
+function triggerGameOver(reason) {
+    gameOver = true;
+    document.getElementById("game-over-stats").innerHTML = `${reason}<br><br>PRZEBYTY DYSTANS: <strong>${playerSteps * 2} m</strong><br>PIĘTRO: <strong>${currentLevel}</strong>`;
+    document.getElementById("game-over").style.display = "flex";
+}
+
+// --- OBSŁUGA WEJŚCIA ---
+window.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") togglePause();
+    if (e.key === "ArrowUp" || e.key === "w" || e.key === "W") moveForward();
+    if (e.key === "ArrowLeft" || e.key === "a" || e.key === "A") rotateLeft();
+    if (e.key === "ArrowRight" || e.key === "d" || e.key === "D") rotateRight();
+});
+
+document.getElementById("pc-mode").onclick = () => startGame("pc");
+document.getElementById("mobile-mode").onclick = () => startGame("mobile");
+document.getElementById("sandbox-mode").onclick = () => startGame("sandbox");
+document.getElementById("resume-btn").onclick = () => togglePause();
+
+document.querySelectorAll(".mobile-button").forEach(btn => {
+    btn.addEventListener("touchstart", (e) => {
+        e.preventDefault();
+        const act = btn.getAttribute("data-action");
+        if (act === "forward") moveForward();
+        if (act === "left") rotateLeft();
+        if (act === "right") rotateRight();
+    });
+});
+
+window.addEventListener("resize", () => {
+    if (camera && renderer) {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+});
+
+// Start rozruchu po załadowaniu DOM
+window.onload = boot;
+</script>
 </body>
 </html>
